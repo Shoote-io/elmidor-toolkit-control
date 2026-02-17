@@ -1,4 +1,9 @@
 {
   "token": "ELMIDOR123",
-  "run": "none"
+  "run": "excel",
+  "data": {
+    "Nom": "Mario",
+    "Laj": 30,
+    "Ville": "Port-au-Prince"
+  }
 }
