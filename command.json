@@ -1,9 +1,5 @@
 {
   "token": "ELMIDOR123",
-  "run": "excel",
-  "data": {
-    "Nom": "Mario",
-    "Laj": 30,
-    "Ville": "Port-au-Prince"
+  "run": "video",
   }
 }
