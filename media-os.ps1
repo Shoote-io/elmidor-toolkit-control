@@ -340,10 +340,10 @@ if ($procAlive) {
 
     # STALE SIGNAL PROTECTION
     if (Test-Path $signalPath) {
-        Write-Log "WARNING: STALE SIGNAL [$($job.Department)::$($job.Stage)] ignored"
+        Write-Log "WARNING: Signal detected[$($job.Department)::$($job.Stage)] (waiting process exit)"
     }
 
-    return
+    cintinue
 }
 
 # === CASE 2: PROCESS FINISHED ===
@@ -365,7 +365,7 @@ if (Test-Path $signalPath) {
         $global:RunningJobs.Remove($jobId)
     }
 
-    return
+    continue
 }
 
 # === CASE 3: TIMEOUT ===
@@ -394,7 +394,7 @@ if ($elapsed.TotalSeconds -gt $JOB_TIMEOUT) {
             $global:RunningJobs.Remove($jobId)
         }
 
-        return
+        continue
     }
 
     Write-Log "FAILED AFTER MAX RETRIES (TIMEOUT) [$($job.Department)::$($job.Stage)]" "ERROR"
@@ -405,7 +405,7 @@ if ($elapsed.TotalSeconds -gt $JOB_TIMEOUT) {
         $global:RunningJobs.Remove($jobId)
     }
 
-    return
+    continue
 }
 
 # === CASE 4: CRASH (PROCESS DEAD, NO SIGNAL) ===
@@ -426,7 +426,7 @@ if ($job.Retries -lt $MAX_RETRIES) {
         $global:RunningJobs.Remove($jobId)
     }
 
-    return
+    continue
 }
 
 Write-Log "FAILED AFTER MAX RETRIES [$($job.Department)::$($job.Stage)]" "ERROR"
@@ -436,7 +436,7 @@ Release-Lock $job.LockPath
 if ($global:RunningJobs.ContainsKey($jobId)) {
     $global:RunningJobs.Remove($jobId)
   }
-}
+ }
 }
 # ------------ DEPARTMENT STATUS ----------------
 function Is-Department-Idle($Department) {
