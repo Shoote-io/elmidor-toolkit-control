@@ -343,7 +343,7 @@ if ($procAlive) {
         Write-Log "WARNING: Signal detected[$($job.Department)::$($job.Stage)] (waiting process exit)"
     }
 
-    cintinue
+    continue
 }
 
 # === CASE 2: PROCESS FINISHED ===
