@@ -20,76 +20,6 @@ $WorkerName    = "recovery.execute"
 $WorkerVersion = "1.0.0"
 
 # =========================================================
-# AUTO ELEVATION
-# =========================================================
-
-function Ensure-Elevated {
-
-    try {
-
-        $Identity =
-            [Security.Principal.WindowsIdentity]::GetCurrent()
-
-        $Principal =
-            New-Object Security.Principal.WindowsPrincipal(
-                $Identity
-            )
-
-        $IsAdmin =
-            $Principal.IsInRole(
-                [Security.Principal.WindowsBuiltInRole]::Administrator
-            )
-
-        if ($IsAdmin) {
-            return
-        }
-
-        Write-Host "[NEXUS] Elevating privileges..."
-
-        $Arguments = @()
-
-        if ($PSCommandPath) {
-
-            $Arguments +=
-                "-ExecutionPolicy Bypass"
-
-            $Arguments +=
-                "-File `"$PSCommandPath`""
-        }
-
-        if ($CommandFile) {
-
-            $Arguments +=
-                "-CommandFile `"$CommandFile`""
-        }
-
-        if ($ExecutionId) {
-
-            $Arguments +=
-                "-ExecutionId `"$ExecutionId`""
-        }
-
-        Start-Process `
-            -FilePath "powershell.exe" `
-            -Verb RunAs `
-            -ArgumentList (
-                $Arguments -join " "
-            )
-
-        exit
-    }
-    catch {
-
-        throw (
-            "AUTO_ELEVATION_FAILED: " +
-            $_.Exception.Message
-        )
-    }
-}
-
-Ensure-Elevated
-
-# =========================================================
 # LOAD CONTEXT
 # =========================================================
 
@@ -193,7 +123,7 @@ else {
                 -Raw `
                 $CommandFile |
             ConvertFrom-Json `
-                -Depth 100
+            
     }
     catch {
 
@@ -389,7 +319,7 @@ function Write-Signal {
 
         $Payload |
             ConvertTo-Json `
-                -Depth 100 |
+                 |
             Set-Content `
                 -Path $SignalFile `
                 -Encoding UTF8
@@ -1359,7 +1289,7 @@ $RecoverySessionPath =
         "recovery.session.json"
 
 $RecoverySession |
-    ConvertTo-Json -Depth 20 |
+    ConvertTo-Json  |
     Set-Content `
         -Path $RecoverySessionPath `
         -Encoding UTF8
@@ -1413,7 +1343,7 @@ $TransitionPlanPath =
         "transition.plan.json"
 
 $TransitionPlan |
-    ConvertTo-Json -Depth 20 |
+    ConvertTo-Json  |
     Set-Content `
         -Path $TransitionPlanPath `
         -Encoding UTF8
