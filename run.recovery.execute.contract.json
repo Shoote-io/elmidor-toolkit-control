@@ -1,0 +1,30 @@
+{
+  "worker": {
+    "name": "recovery.execute",
+    "runtime": "powershell",
+    "script": "C:\\ELMIDORNEXUS\\SYSTEM\\EXECUTION\\workers\\recovery.execute.ps1",
+    "timeout_seconds": 120
+  },
+
+  "permissions": {
+    "shell": true,
+    "network": false,
+    "filesystem": false,
+    "elevated": true
+  },
+
+  "enabled": true,
+
+  "allowed_actions": [
+    "ping",
+    "run"
+  ],
+
+  "telemetry": {
+    "emit_worker_signal": true,
+    "emit_runtime_state": true
+  },
+
+  "version": "1.0.0",
+  "type": "worker"
+}
