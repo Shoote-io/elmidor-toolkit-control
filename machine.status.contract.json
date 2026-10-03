@@ -1,0 +1,30 @@
+{
+  "worker": {
+    "name": "machine.status",
+    "runtime": "powershell",
+    "script": "C:\\ELMIDORNEXUS\\SYSTEM\\EXECUTION\\workers\\machine.status.ps1",
+    "timeout_seconds": 120
+  },
+
+  "permissions": {
+    "shell": false,
+    "network": false,
+    "filesystem": false,
+    "elevated": false
+  },
+
+  "enabled": true,
+
+  "allowed_actions": [
+    "ping",
+    "scan"
+  ],
+
+  "telemetry": {
+    "emit_worker_signal": true,
+    "emit_runtime_state": true
+  },
+
+  "version": "1.0.0",
+  "type": "worker"
+}
