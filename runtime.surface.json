@@ -1,0 +1,102 @@
+{
+    "surface":  {
+                    "name":  "ELMIDOR NEXUS RUNTIME SURFACE",
+                    "version":  "1.0.0",
+                    "created":  "2026-10-04T22:49:39.7077873Z",
+                    "root":  "C:\\KAYA",
+                    "files":  [
+                                  {
+                                      "relative":  "nexus.manifest.json",
+                                      "type":  "file"
+                                  },
+                                  {
+                                      "relative":  "README.md",
+                                      "type":  "file"
+                                  },
+                                  {
+                                      "relative":  "runtime.manifest.json",
+                                      "type":  "file"
+                                  },
+                                  {
+                                      "relative":  "ENTITY\\IDENTITY\\node.identity.json",
+                                      "type":  "file"
+                                  },
+                                  {
+                                      "relative":  "ENTITY\\PROFILE\\owner.profile.json",
+                                      "type":  "file"
+                                  },
+                                  {
+                                      "relative":  "NEXUS\\CONTRACTS\\workers\\install.contract.json",
+                                      "type":  "file"
+                                  },
+                                  {
+                                    "relative": "NEXUS/CONTRACTS/workers/machine.status.contract.json",
+                                    "type": "file"
+                                  },
+                                  {
+                                      "relative":  "NEXUS\\GOVERNANCE\\policies\\runtime.policy.json",
+                                      "type":  "file"
+                                  },
+                                  {
+                                      "relative":  "NEXUS\\GOVERNANCE\\security\\security.policy.json",
+                                      "type":  "file"
+                                  },
+                                  {
+                                      "relative":  "NEXUS\\REGISTRY\\capabilities\\system.status.capability.json",
+                                      "type":  "file"
+                                  },
+                                  {
+                                      "relative":  "SYSTEM\\CORE\\lifecycle\\runtime.lifecycle.json",
+                                      "type":  "file"
+                                  },
+                                  {
+                                      "relative":  "SYSTEM\\CORE\\state\\cloud.registration.json",
+                                      "type":  "file"
+                                  },
+                                  {
+                                      "relative":  "SYSTEM\\CORE\\state\\environment.state.json",
+                                      "type":  "file"
+                                  },
+                                  {
+                                      "relative":  "SYSTEM\\CORE\\state\\runtime.context.json",
+                                      "type":  "file"
+                                  },
+                                  {
+                                      "relative":  "SYSTEM\\CORE\\state\\runtime.state.json",
+                                      "type":  "file"
+                                  },
+                                  {
+                                      "relative":  "SYSTEM\\EXECUTION\\engines\\installer.engine.ps1",
+                                      "type":  "file"
+                                  },
+                                  {
+                                      "relative":  "SYSTEM\\EXECUTION\\modules\\queue.engine.ps1",
+                                      "type":  "file"
+                                  },
+                                  {
+                                      "relative":  "SYSTEM\\EXECUTION\\modules\\runtime.supervisor.ps1",
+                                      "type":  "file"
+                                  },
+                                  {
+                                      "relative":  "SYSTEM\\EXECUTION\\operations\\listener.engine.ps1",
+                                      "type":  "file"
+                                  },
+                                  {
+                                      "relative":  "SYSTEM\\EXECUTION\\pipelines\\update.engine.ps1",
+                                      "type":  "file"
+                                  },
+                                  {
+                                      "relative":  "SYSTEM\\EXECUTION\\services\\heartbeat.engine.ps1",
+                                      "type":  "file"
+                                  },
+                                  {
+                                      "relative":  "SYSTEM\\EXECUTION\\workers\\machine.status.ps1",
+                                      "type":  "file"
+                                  },
+                                  {
+                                      "relative":  "NEXUS\\SCHEMAS\\runtime\\runtime.surface.json",
+                                      "type":  "file"
+                                  }
+                              ]
+                }
+}
