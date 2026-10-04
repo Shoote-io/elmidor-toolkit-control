@@ -2,7 +2,7 @@
   "worker": {
     "name": "machine.status",
     "runtime": "powershell",
-    "script": "C:\\ELMIDORNEXUS\\SYSTEM\\EXECUTION\\workers\\machine.status.ps1",
+    "script": "SYSTEM\\EXECUTION\\workers\\machine.status.ps1",
     "timeout_seconds": 120
   },
 
