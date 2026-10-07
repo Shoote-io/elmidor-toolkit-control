@@ -66,6 +66,10 @@
                                       "type":  "file"
                                   },
                                   {
+                                      "relative":  "SYSTEM\\CORE\\bootstrap\\bootstrap.personal-os.ps1",
+                                      "type":  "file"
+                                  },
+                                  {
                                       "relative":  "SYSTEM\\EXECUTION\\engines\\installer.engine.ps1",
                                       "type":  "file"
                                   },
