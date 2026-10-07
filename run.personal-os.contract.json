@@ -1,0 +1,81 @@
+{
+  "worker": {
+    "name": "run.bootstrap",
+    "runtime": "powershell",
+    "script": "SYSTEM\\CORE\\bootstrap\\personal-os.ps1",
+    "timeout_seconds": 300
+  },
+
+  "permissions": {
+    "shell": true,
+    "network": false,
+    "filesystem": true,
+    "elevated": false
+  },
+
+  "execution": {
+    "mode": "process",
+    "execution_policy": "bypass",
+    "wait_for_completion": true,
+    "allow_child_processes": true,
+    "working_directory": "C:\\KAYA\\SYSTEM\\CORE"
+  },
+
+  "input": {
+    "target": {
+      "root": "C:\\KAYA\\ENTITY\\PROFILE\\PERSONAL-OS"
+    }
+  },
+
+  "output": {
+    "type": "worker_result",
+    "success_state": "completed",
+    "failure_state": "failed"
+  },
+
+  "lifecycle": {
+    "states": [
+      "queued",
+      "running",
+      "completed",
+      "failed"
+    ],
+    "emit_state_signal": true
+  },
+
+  "security": {
+    "trust_level": "system",
+    "requires_authorization": true,
+    "allow_network": false,
+    "allow_elevation": false
+  },
+
+  "allowed_actions": [
+    "ping",
+    "run",
+    "bootstrap"
+  ],
+
+  "telemetry": {
+    "emit_worker_signal": true,
+    "emit_runtime_state": true,
+    "emit_execution_result": true,
+    "emit_failure_details": true
+  },
+
+  "recovery": {
+    "retry": {
+      "enabled": false,
+      "max_attempts": 0
+    },
+    "rollback": {
+      "enabled": false
+    }
+  },
+
+  "enabled": true,
+
+  "version": "1.0.0",
+
+  "type": "worker"
+}
