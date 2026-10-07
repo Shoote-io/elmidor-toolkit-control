@@ -2,7 +2,7 @@
   "worker": {
     "name": "run.bootstrap",
     "runtime": "powershell",
-    "script": "SYSTEM\\CORE\\bootstrap\\personal-os.ps1",
+    "script": "SYSTEM\\CORE\\bootstrap\\personal.os.ps1",
     "timeout_seconds": 300
   },
 
