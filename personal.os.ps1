@@ -1,4 +1,9 @@
 
+# =====================================================================
+# KAYA NEXUS PERSONAL OS BOOTSTRAP
+# RESPONSIBILITIES \ SAFETY WORKER
+# =====================================================================
+
 [CmdletBinding()]
 param(
     [string]$KayaRoot = 'C:\KAYA',
@@ -6,681 +11,514 @@ param(
     [string]$ExecutionId = ''
 )
 
-Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-# ============================================================
-# 1. WORKER IDENTITY
-# ============================================================
+# =====================================================================
+# 1. VERSION AND ENVIRONMENT
+# =====================================================================
 
-$WorkerName        = 'run.personal-os'
-$WorkerVersion     = '1.1.0'
-$ArchitectureVersion = '1.1.0'
-$SchemaVersion     = '1.0'
+$WorkerVersion = '1.0.0'
+$ArchitectureVersion = '1.0.0'
+
+$PersonalOSRoot = Join-Path $KayaRoot 'ENTITY\PROFILE\PERSONAL-OS'
+
+$RuntimeRoot = Join-Path $KayaRoot 'RUNTIME'
+$LogRoot = Join-Path $RuntimeRoot 'LOGS'
+$SignalRoot = Join-Path $RuntimeRoot 'BUS\signals'
+
+$LogPath = Join-Path $LogRoot 'bootstrap.personal-os.log'
+
+$CommandId = ''
+$PersonalOSId = ''
 
 $StartedAt = (Get-Date).ToUniversalTime().ToString('o')
 
-$CommandId = ''
-
-# ============================================================
-# 2. PATH DISCOVERY
-# ============================================================
-
-$ProfileRoot = Join-Path $KayaRoot 'ENTITY\PROFILE'
-
-$PersonalOSRoot = Join-Path `
-    $ProfileRoot `
-    'PERSONAL-OS'
-
-$RuntimeRoot = Join-Path $KayaRoot 'RUNTIME'
-
-$LogRoot = Join-Path $RuntimeRoot 'LOGS'
-
-$SignalBusRoot = Join-Path `
-    $RuntimeRoot `
-    'BUS\signals'
-
-$LogPath = Join-Path `
-    $LogRoot `
-    'bootstrap.personal-os.log'
-
-$SignalPath = $null
-
-# ============================================================
-# 3. LOGGING
-# ============================================================
+# =====================================================================
+# 2. LOGGING
+# =====================================================================
 
 function Write-WorkerLog {
-
     param(
-        [ValidateSet('INFO','WARN','ERROR')]
-        [string]$Level = 'INFO',
-
+        [string]$Level,
         [string]$Message
     )
 
-    $Timestamp = (
-        Get-Date
-    ).ToUniversalTime().ToString('o')
+    $Timestamp = (Get-Date).ToUniversalTime().ToString('o')
 
-    $Line = '[{0}][{1}][PERSONAL_OS] {2}' -f `
-        $Timestamp,
-        $Level,
-        $Message
+    $Line = "[$Timestamp][$Level][PERSONAL-OS] $Message"
 
-    Add-Content `
-        -Path $LogPath `
-        -Value $Line `
-        -Encoding UTF8
+    Add-Content -LiteralPath $LogPath -Value $Line -Encoding UTF8
 }
 
-# ============================================================
-# 4. JSON HELPERS
-# ============================================================
-
-function Write-JsonFile {
-
-    param(
-        [Parameter(Mandatory)]
-        [string]$Path,
-
-        [Parameter(Mandatory)]
-        [object]$Object
-    )
-
-    $Directory = Split-Path $Path -Parent
-
-    if (-not (Test-Path $Directory)) {
-
-        New-Item `
-            -ItemType Directory `
-            -Path $Directory `
-            -Force |
-            Out-Null
-    }
-
-    $Json = ConvertTo-Json `
-        -InputObject $Object `
-        -Depth 30
-
-    Set-Content `
-        -Path $Path `
-        -Value $Json `
-        -Encoding UTF8
-}
-
-function Write-JsonIfMissing {
-
-    param(
-        [string]$Path,
-        [object]$Object
-    )
-
-    if (-not (Test-Path $Path)) {
-
-        Write-JsonFile `
-            -Path $Path `
-            -Object $Object
-    }
-}
-
-function Write-TextIfMissing {
-
-    param(
-        [string]$Path,
-        [string]$Content
-    )
-
-    if (-not (Test-Path $Path)) {
-
-        $Directory = Split-Path $Path -Parent
-
-        if (-not (Test-Path $Directory)) {
-
-            New-Item `
-                -ItemType Directory `
-                -Path $Directory `
-                -Force |
-                Out-Null
-        }
-
-        Set-Content `
-            -Path $Path `
-            -Value $Content `
-            -Encoding UTF8
-    }
-}
-
-# ============================================================
-# 5. COMMAND CONTEXT
-# ============================================================
+# =====================================================================
+# 3. COMMAND CONTEXT
+# =====================================================================
 
 function Import-CommandContext {
 
-    param(
-        [string]$Path
-    )
-
-    if ([string]::IsNullOrWhiteSpace($Path)) {
+    if ([string]::IsNullOrWhiteSpace($CommandFile)) {
         return
     }
 
-    if (-not (Test-Path $Path -PathType Leaf)) {
-        throw "COMMAND_FILE_NOT_FOUND: $Path"
+    if (!(Test-Path -LiteralPath $CommandFile -PathType Leaf)) {
+        throw "COMMAND_FILE_NOT_FOUND: $CommandFile"
     }
 
-    $CommandData = Get-Content `
-        -Path $Path `
-        -Raw |
-        ConvertFrom-Json
+    $Command = Get-Content `
+        -LiteralPath $CommandFile `
+        -Raw `
+        -Encoding UTF8 | ConvertFrom-Json
 
-    if (
-        [string]::IsNullOrWhiteSpace(
-            [string]$CommandData.command_id
-        )
-    ) {
-        throw 'COMMAND_ID_NOT_FOUND'
+    if ($Command.command_id) {
+        $script:CommandId = [string]$Command.command_id
     }
-
-    $script:CommandId = [string]$CommandData.command_id
 }
 
-# ============================================================
-# 6. QUEUE WORKER SIGNAL
-# ============================================================
+# =====================================================================
+# 4. DIRECTORY INITIALIZATION
+# =====================================================================
 
-function Write-WorkerSignal {
-
+function Ensure-Directory {
     param(
-        [ValidateSet('running','completed','failed')]
-        [string]$Status,
-
-        [int]$Progress = 0,
-
-        [object]$Result = $null,
-
-        [object]$Note = $null
+        [Parameter(Mandatory = $true)]
+        [string]$Path
     )
 
-    $Payload = [ordered]@{
+    if (!(Test-Path -LiteralPath $Path -PathType Container)) {
 
-        command_id = $CommandId
+        New-Item `
+            -ItemType Directory `
+            -Path $Path `
+            -Force | Out-Null
 
-        phase = 'worker'
+        Write-WorkerLog 'INFO' "DIRECTORY_CREATED $Path"
+    }
+}
 
-        engine = 'personal-os'
+# =====================================================================
+# 5. SAFE JSON INITIALIZATION
+# =====================================================================
 
-        status = $Status
+function Ensure-JsonFile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
 
-        progress = $Progress
+        [Parameter(Mandatory = $true)]
+        [object]$Data
+    )
 
-        note = $Note
-
-        result = $Result
-
-        timestamp = (
-            Get-Date
-        ).ToUniversalTime().ToString('o')
+    if (Test-Path -LiteralPath $Path -PathType Leaf) {
+        Write-WorkerLog 'INFO' "EXISTING_FILE_PRESERVED $Path"
+        return
     }
 
-    $TemporaryPath = Join-Path `
-        $SignalBusRoot `
-        "$ExecutionId.worker.tmp"
+    $Directory = Split-Path -Parent $Path
 
-    $FinalPath = Join-Path `
-        $SignalBusRoot `
-        "$ExecutionId.worker.json"
+    Ensure-Directory -Path $Directory
 
     $Json = ConvertTo-Json `
-        -InputObject $Payload `
-        -Depth 50
+        -InputObject $Data `
+        -Depth 20
+
+    $TempPath = "$Path.tmp"
 
     Set-Content `
-        -Path $TemporaryPath `
+        -LiteralPath $TempPath `
         -Value $Json `
         -Encoding UTF8
 
     Move-Item `
-        -Path $TemporaryPath `
-        -Destination $FinalPath `
-        -Force
+        -LiteralPath $TempPath `
+        -Destination $Path
 
-    $script:SignalPath = $FinalPath
+    Write-WorkerLog 'INFO' "FILE_CREATED $Path"
 }
 
-# ============================================================
-# 7. PERSONAL OS DOMAIN STRUCTURE
-# ============================================================
+# =====================================================================
+# 6. NEXUS WORKER SIGNAL
+# =====================================================================
 
-function Initialize-PersonalOSStructure {
-
-    $Directories = @(
-        'CORE',
-        'BRIDGE',
-        'LIFE',
-        'SPACES',
-        'LIBRARY',
-        'CONNECTIONS',
-        'ACTIVITY',
-        'MEMORY',
-        'STATE',
-        'MODULES',
-        'launch'
+function Write-WorkerSignal {
+    param(
+        [string]$Status,
+        [int]$Progress,
+        [string]$Note,
+        [object]$Result = $null
     )
 
-    foreach ($Directory in $Directories) {
-
-        $Path = Join-Path `
-            $PersonalOSRoot `
-            $Directory
-
-        New-Item `
-            -ItemType Directory `
-            -Path $Path `
-            -Force |
-            Out-Null
+    if ([string]::IsNullOrWhiteSpace($ExecutionId)) {
+        return
     }
 
-    Write-WorkerLog `
-        -Level INFO `
-        -Message 'Personal OS domain structure verified.'
-}
-
-# ============================================================
-# 8. CORE FILES
-# ============================================================
-
-function Initialize-PersonalOSCore {
-
-    $IdentityPath = Join-Path `
-        $PersonalOSRoot `
-        'CORE\identity.json'
-
-    $ManifestPath = Join-Path `
-        $PersonalOSRoot `
-        'CORE\manifest.json'
-
-    $ConfigurationPath = Join-Path `
-        $PersonalOSRoot `
-        'CORE\configuration.json'
-
-    $PermissionsPath = Join-Path `
-        $PersonalOSRoot `
-        'CORE\permissions.json'
-
-    $PoliciesPath = Join-Path `
-        $PersonalOSRoot `
-        'CORE\policies.json'
-
-    $PersonalOSId = 'pos-' + [guid]::NewGuid().ToString()
-
-    Write-JsonIfMissing `
-        -Path $IdentityPath `
-        -Object ([ordered]@{
-
-            schema_version = '1.0'
-
-            personal_os_id = $PersonalOSId
-
-            name = 'Personal OS'
-
-            created_at = (
-                Get-Date
-            ).ToUniversalTime().ToString('o')
-
-            status = 'initialized'
-        })
-
-    $Identity = Get-Content `
-        -Path $IdentityPath `
-        -Raw |
-        ConvertFrom-Json
-
-    Write-JsonIfMissing `
-        -Path $ManifestPath `
-        -Object ([ordered]@{
-
-            schema_version = '1.0'
-
-            architecture_version = $ArchitectureVersion
-
-            worker_version = $WorkerVersion
-
-            personal_os_id = $Identity.personal_os_id
-
-            root = $PersonalOSRoot
-
-            domains = @(
-                'CORE',
-                'BRIDGE',
-                'LIFE',
-                'SPACES',
-                'LIBRARY',
-                'CONNECTIONS',
-                'ACTIVITY',
-                'MEMORY',
-                'STATE',
-                'MODULES'
-            )
-        })
-
-    Write-JsonIfMissing `
-        -Path $ConfigurationPath `
-        -Object ([ordered]@{
-
-            schema_version = '1.0'
-
-            personal_os_root = $PersonalOSRoot
-
-            bridge_status = 'unconfigured'
-
-            environment = 'local'
-
-            initialized = $true
-        })
-
-    Write-JsonIfMissing `
-        -Path $PermissionsPath `
-        -Object ([ordered]@{
-
-            schema_version = '1.0'
-
-            permissions = @{}
-
-            default_policy = 'deny'
-        })
-
-    Write-JsonIfMissing `
-        -Path $PoliciesPath `
-        -Object ([ordered]@{
-
-            schema_version = '1.0'
-
-            policies = @()
-
-            enforcement = 'pending'
-        })
-
-    return $Identity
-}
-
-# ============================================================
-# 9. DOMAIN DESCRIPTIONS
-# ============================================================
-
-function Initialize-PersonalOSDocumentation {
-
-    $Documents = @{
-
-        'README.md' = @'
-# Personal OS
-
-Personal environment and digital stewardship architecture.
-
-This directory is managed by the Personal OS bootstrap worker.
-'@
-
-        'BRIDGE\README.md' = @'
-# Nexus Bridge
-
-Integration boundary between Personal OS and Nexus.
-'@
-
-        'LIFE\README.md' = @'
-# Life
-
-Personal life organization domain.
-'@
-
-        'SPACES\README.md' = @'
-# Spaces
-
-Personal spaces and organizational environments.
-'@
-
-        'LIBRARY\README.md' = @'
-# Library
-
-Personal knowledge and resource organization.
-'@
-
-        'CONNECTIONS\README.md' = @'
-# Connections
-
-External services and connection definitions.
-'@
-
-        'ACTIVITY\README.md' = @'
-# Activity
-
-Personal activity records and history.
-'@
-
-        'MEMORY\README.md' = @'
-# Memory
-
-Personal OS memory domain.
-'@
-
-        'MODULES\README.md' = @'
-# Modules
-
-Personal OS functional modules.
-'@
-
-        'launch\README.md' = @'
-# Launch
-
-Personal OS startup and entry definitions.
-'@
+    $Signal = [ordered]@{
+        command_id  = $CommandId
+        phase       = 'worker'
+        engine      = 'personal-os'
+        status      = $Status
+        progress    = $Progress
+        note        = $Note
+        result      = $Result
+        timestamp   = (Get-Date).ToUniversalTime().ToString('o')
     }
 
-    foreach ($RelativePath in $Documents.Keys) {
+    $SignalPath = Join-Path `
+        $SignalRoot `
+        "$ExecutionId.worker.json"
 
-        $Path = Join-Path `
+    $TempPath = "$SignalPath.tmp"
+
+    $Json = ConvertTo-Json `
+        -InputObject $Signal `
+        -Depth 20
+
+    Set-Content `
+        -LiteralPath $TempPath `
+        -Value $Json `
+        -Encoding UTF8
+
+    Move-Item `
+        -LiteralPath $TempPath `
+        -Destination $SignalPath `
+        -Force
+}
+
+# =====================================================================
+# 7. PERSONAL OS DIRECTORY MAP
+# =====================================================================
+
+function Initialize-DirectoryStructure {
+
+    $Directories = @(
+
+        # Personal OS domains
+        'CORE'
+        'BRIDGE'
+        'LIFE'
+        'SPACES'
+        'LIBRARY'
+        'CONNECTIONS'
+        'ACTIVITY'
+        'MEMORY'
+        'STATE'
+
+        # Connection domains
+        'CONNECTIONS\accounts'
+        'CONNECTIONS\contacts'
+        'CONNECTIONS\services'
+        'CONNECTIONS\integrations'
+
+    )
+
+    foreach ($RelativePath in $Directories) {
+
+        $FullPath = Join-Path `
             $PersonalOSRoot `
             $RelativePath
 
-        Write-TextIfMissing `
-            -Path $Path `
-            -Content $Documents[$RelativePath]
+        Ensure-Directory -Path $FullPath
     }
 }
 
-# ============================================================
-# 10. STATE
-# ============================================================
+# =====================================================================
+# 8. CORE INITIALIZATION
+# =====================================================================
 
-function Initialize-PersonalOSState {
+function Initialize-Core {
+
+    $IdentityPath = Join-Path $PersonalOSRoot 'CORE\identity.json'
+
+    $PersonalOSId = [guid]::NewGuid().ToString()
+
+    if (Test-Path -LiteralPath $IdentityPath -PathType Leaf) {
+
+        try {
+            $ExistingIdentity = Get-Content `
+                -LiteralPath $IdentityPath `
+                -Raw `
+                -Encoding UTF8 | ConvertFrom-Json
+
+            if ($ExistingIdentity.personal_os_id) {
+                $PersonalOSId = [string]$ExistingIdentity.personal_os_id
+            }
+        }
+        catch {
+            throw "IDENTITY_FILE_INVALID: $IdentityPath"
+        }
+    }
+
+    $script:PersonalOSId = $PersonalOSId
+
+    $Identity = [ordered]@{
+        schema_version = '1.0.0'
+        personal_os_id = $PersonalOSId
+        entity_type = 'digital-human-environment'
+        status = 'initialized'
+        created_at = $StartedAt
+    }
+
+    $Manifest = [ordered]@{
+        schema_version = '1.0.0'
+        name = 'Personal OS'
+        architecture_version = $ArchitectureVersion
+        worker_version = $WorkerVersion
+        parent_system = 'Elmidor Nexus'
+        entity_root = $PersonalOSRoot
+
+        domains = @(
+            'CORE'
+            'BRIDGE'
+            'LIFE'
+            'SPACES'
+            'LIBRARY'
+            'CONNECTIONS'
+            'ACTIVITY'
+            'MEMORY'
+            'STATE'
+        )
+
+        capabilities = @(
+            'general'
+            'identity'
+            'accounts'
+            'personal-organization'
+            'knowledge-management'
+            'activity-management'
+        )
+
+        created_at = $StartedAt
+    }
+
+    $Configuration = [ordered]@{
+        schema_version = '1.0.0'
+        language = $null
+        timezone = $null
+        date_format = 'yyyy-MM-dd'
+        time_format = '24h'
+        default_space = 'personal'
+        automatic_archival = $false
+        created_at = $StartedAt
+    }
+
+    $Permissions = [ordered]@{
+        schema_version = '1.0.0'
+        default_access = 'restricted'
+        external_connections = $false
+        account_access = $false
+        credential_access = $false
+        filesystem_access = 'personal-os-root'
+        require_authorization_for_sensitive_actions = $true
+    }
+
+    $Policies = [ordered]@{
+        schema_version = '1.0.0'
+        preserve_existing_data = $true
+        create_optional_resources_on_demand = $true
+        prevent_duplicate_records = $true
+        protect_credentials = $true
+        require_authorization_for_external_actions = $true
+    }
+
+    Ensure-JsonFile `
+        -Path $IdentityPath `
+        -Data $Identity
+
+    Ensure-JsonFile `
+        -Path (Join-Path $PersonalOSRoot 'CORE\manifest.json') `
+        -Data $Manifest
+
+    Ensure-JsonFile `
+        -Path (Join-Path $PersonalOSRoot 'CORE\configuration.json') `
+        -Data $Configuration
+
+    Ensure-JsonFile `
+        -Path (Join-Path $PersonalOSRoot 'CORE\permissions.json') `
+        -Data $Permissions
+
+    Ensure-JsonFile `
+        -Path (Join-Path $PersonalOSRoot 'CORE\policies.json') `
+        -Data $Policies
+}
+
+# =====================================================================
+# 9. LIFE INITIALIZATION
+# =====================================================================
+
+function Initialize-Life {
+
+    $Profile = [ordered]@{
+        schema_version = '1.0.0'
+        profile_id = [guid]::NewGuid().ToString()
+        display_name = $null
+        description = $null
+        profile_type = @(
+            'general'
+        )
+        created_at = $StartedAt
+    }
+
+    $Preferences = [ordered]@{
+        schema_version = '1.0.0'
+        communication = @{}
+        organization = @{}
+        productivity = @{}
+        accessibility = @{}
+        updated_at = $StartedAt
+    }
+
+    Ensure-JsonFile `
+        -Path (Join-Path $PersonalOSRoot 'LIFE\profile.json') `
+        -Data $Profile
+
+    Ensure-JsonFile `
+        -Path (Join-Path $PersonalOSRoot 'LIFE\preferences.json') `
+        -Data $Preferences
+}
+
+# =====================================================================
+# 10. ACCOUNTS INITIALIZATION
+# =====================================================================
+
+function Initialize-Accounts {
+
+    $AccountsRoot = Join-Path `
+        $PersonalOSRoot `
+        'CONNECTIONS\accounts'
+
+    Ensure-Directory -Path $AccountsRoot
+
+    $Registry = [ordered]@{
+        schema_version = '1.0.0'
+        registry_type = 'digital-account-registry'
+        accounts = @()
+        total_accounts = 0
+        created_at = $StartedAt
+        updated_at = $StartedAt
+    }
+
+    Ensure-JsonFile `
+        -Path (Join-Path $AccountsRoot 'registry.json') `
+        -Data $Registry
+}
+
+# =====================================================================
+# 11. STATE INITIALIZATION
+# =====================================================================
+
+function Initialize-State {
+
+    $BootstrapState = [ordered]@{
+        schema_version = '1.0.0'
+        personal_os_id = $PersonalOSId
+        architecture_version = $ArchitectureVersion
+        worker_version = $WorkerVersion
+        bootstrap_status = 'completed'
+        last_bootstrap_at = $StartedAt
+        parent_runtime = 'Elmidor Nexus'
+    }
 
     $StatePath = Join-Path `
         $PersonalOSRoot `
         'STATE\bootstrap.state.json'
 
-    Write-JsonIfMissing `
+    Ensure-JsonFile `
         -Path $StatePath `
-        -Object ([ordered]@{
-
-            schema_version = '1.0'
-
-            status = 'initialized'
-
-            architecture_version = $ArchitectureVersion
-
-            worker_version = $WorkerVersion
-
-            initialized_at = (
-                Get-Date
-            ).ToUniversalTime().ToString('o')
-        })
+        -Data $BootstrapState
 }
 
-# ============================================================
-# 11. MAIN EXECUTION
-# ============================================================
+# =====================================================================
+# 12. MAIN EXECUTION
+# =====================================================================
 
 $ExitCode = 0
+
 $Result = $null
 
 try {
 
-    if (-not (Test-Path $KayaRoot -PathType Container)) {
+    Ensure-Directory -Path $LogRoot
+    Ensure-Directory -Path $SignalRoot
+
+    Write-WorkerLog 'INFO' "WORKER_START version=$WorkerVersion"
+    Write-WorkerLog 'INFO' "KAYA_ROOT=$KayaRoot"
+    Write-WorkerLog 'INFO' "PERSONAL_OS_ROOT=$PersonalOSRoot"
+
+    Write-WorkerSignal `
+        -Status 'running' `
+        -Progress 5 `
+        -Note 'Loading Personal OS context.'
+
+    Import-CommandContext
+
+    if (!(Test-Path -LiteralPath $KayaRoot -PathType Container)) {
         throw "KAYA_ROOT_NOT_FOUND: $KayaRoot"
     }
 
-    New-Item `
-        -ItemType Directory `
-        -Path $LogRoot `
-        -Force |
-        Out-Null
+    Ensure-Directory -Path $PersonalOSRoot
 
-    New-Item `
-        -ItemType Directory `
-        -Path $SignalBusRoot `
-        -Force |
-        Out-Null
-
-    Write-WorkerLog `
-        -Level INFO `
-        -Message "Worker starting. command_id=$CommandId execution_id=$ExecutionId"
-
-    Write-WorkerLog `
-        -Level INFO `
-        -Message "KAYA_ROOT=$KayaRoot"
-
-    Write-WorkerLog `
-        -Level INFO `
-        -Message "PERSONAL_OS_ROOT=$PersonalOSRoot"
-
-    # Read command context when Queue supplies it.
-    Import-CommandContext -Path $CommandFile
-
-    Write-WorkerLog `
-        -Level INFO `
-        -Message "COMMAND_ID=$CommandId"
-
-    if ([string]::IsNullOrWhiteSpace($ExecutionId)) {
-        throw 'MISSING_EXECUTION_ID'
-    }
-
-    # START
     Write-WorkerSignal `
-        -Status running `
-        -Progress 5 `
-        -Note @{
-            message = 'Personal OS bootstrap initialized.'
-        }
-
-    # DOMAIN STRUCTURE
-    Write-WorkerSignal `
-        -Status running `
+        -Status 'running' `
         -Progress 20 `
-        -Note @{
-            message = 'Creating Personal OS domain structure.'
-        }
+        -Note 'Initializing Personal OS domains.'
 
-    Initialize-PersonalOSStructure
+    Initialize-DirectoryStructure
 
-    # CORE
     Write-WorkerSignal `
-        -Status running `
+        -Status 'running' `
         -Progress 45 `
-        -Note @{
-            message = 'Initializing Personal OS core.'
-        }
+        -Note 'Initializing Core architecture.'
 
-    $Identity = Initialize-PersonalOSCore
+    Initialize-Core
 
-    # DOCUMENTATION
     Write-WorkerSignal `
-        -Status running `
+        -Status 'running' `
         -Progress 65 `
-        -Note @{
-            message = 'Initializing Personal OS domain documentation.'
-        }
+        -Note 'Initializing personal environment.'
 
-    Initialize-PersonalOSDocumentation
+    Initialize-Life
 
-    # STATE
     Write-WorkerSignal `
-        -Status running `
+        -Status 'running' `
         -Progress 80 `
-        -Note @{
-            message = 'Initializing Personal OS state.'
-        }
+        -Note 'Initializing digital account registry.'
 
-    Initialize-PersonalOSState
+    Initialize-Accounts
 
-    # VERIFICATION
-    $RequiredPaths = @(
-        $PersonalOSRoot,
-        (Join-Path $PersonalOSRoot 'CORE'),
-        (Join-Path $PersonalOSRoot 'BRIDGE'),
-        (Join-Path $PersonalOSRoot 'LIFE'),
-        (Join-Path $PersonalOSRoot 'SPACES'),
-        (Join-Path $PersonalOSRoot 'LIBRARY'),
-        (Join-Path $PersonalOSRoot 'CONNECTIONS'),
-        (Join-Path $PersonalOSRoot 'ACTIVITY'),
-        (Join-Path $PersonalOSRoot 'MEMORY'),
-        (Join-Path $PersonalOSRoot 'STATE'),
-        (Join-Path $PersonalOSRoot 'MODULES'),
-        (Join-Path $PersonalOSRoot 'launch')
-    )
-
-    foreach ($Path in $RequiredPaths) {
-
-        if (-not (Test-Path $Path)) {
-            throw "PERSONAL_OS_STRUCTURE_INCOMPLETE: $Path"
-        }
-    }
-
-    Write-WorkerLog `
-        -Level INFO `
-        -Message 'Personal OS verification completed successfully.'
+    Initialize-State
 
     $Result = [ordered]@{
-
-        schema_version = $SchemaVersion
-
-        type = 'personal_os_bootstrap_result'
-
-        architecture_version = $ArchitectureVersion
-
-        worker_version = $WorkerVersion
-
-        personal_os_id = $Identity.personal_os_id
-
-        personal_os_root = $PersonalOSRoot
-
-        bridge_status = 'unconfigured'
-
         command_id = $CommandId
-
         execution_id = $ExecutionId
-
+        personal_os_id = $PersonalOSId
+        personal_os_root = $PersonalOSRoot
+        architecture_version = $ArchitectureVersion
+        worker_version = $WorkerVersion
         status = 'completed'
-
-        signal_bus = $SignalBusRoot
-
+        initialized_domains = @(
+            'CORE'
+            'BRIDGE'
+            'LIFE'
+            'SPACES'
+            'LIBRARY'
+            'CONNECTIONS'
+            'ACTIVITY'
+            'MEMORY'
+            'STATE'
+        )
+        account_registry = Join-Path `
+            $PersonalOSRoot `
+            'CONNECTIONS\accounts\registry.json'
         log_path = $LogPath
-
-        created_at = (
-            Get-Date
-        ).ToUniversalTime().ToString('o')
     }
 
-    # COMPLETION SIGNAL
-    Write-WorkerSignal `
-        -Status completed `
-        -Progress 100 `
-        -Result $Result `
-        -Note @{
-            message = 'Personal OS bootstrap completed successfully.'
-        }
+    Write-WorkerLog 'INFO' 'PERSONAL_OS_INITIALIZATION_COMPLETED'
 
-    Write-WorkerLog `
-        -Level INFO `
-        -Message "Worker completed successfully. execution_id=$ExecutionId"
+    Write-WorkerSignal `
+        -Status 'completed' `
+        -Progress 100 `
+        -Note 'Personal OS initialized successfully.' `
+        -Result $Result
+
 }
 catch {
 
@@ -688,62 +526,39 @@ catch {
 
     $ErrorMessage = $_.Exception.Message
 
+    $Result = [ordered]@{
+        command_id = $CommandId
+        execution_id = $ExecutionId
+        personal_os_id = $PersonalOSId
+        personal_os_root = $PersonalOSRoot
+        status = 'failed'
+        error = $ErrorMessage
+        log_path = $LogPath
+    }
+
     try {
 
-        Write-WorkerLog `
-            -Level ERROR `
-            -Message "Worker failed: $ErrorMessage"
+        Write-WorkerLog 'ERROR' $ErrorMessage
 
-        $FailureResult = [ordered]@{
+        Write-WorkerSignal `
+            -Status 'failed' `
+            -Progress 100 `
+            -Note $ErrorMessage `
+            -Result $Result
 
-            schema_version = $SchemaVersion
-
-            type = 'personal_os_bootstrap_result'
-
-            command_id = $CommandId
-
-            execution_id = $ExecutionId
-
-            status = 'failed'
-
-            error = $ErrorMessage
-
-            created_at = (
-                Get-Date
-            ).ToUniversalTime().ToString('o')
-        }
-
-        if (
-            (Test-Path $SignalBusRoot) -and
-            -not [string]::IsNullOrWhiteSpace($ExecutionId)
-        ) {
-
-            Write-WorkerSignal `
-                -Status failed `
-                -Progress 100 `
-                -Result $FailureResult `
-                -Note @{
-                    message = 'Personal OS bootstrap failed.'
-                    reason = $ErrorMessage
-                }
-        }
     }
     catch {
-        # Preserve the original worker failure.
+        Write-Error "WORKER_FAILURE_SIGNAL_ERROR: $($_.Exception.Message)"
     }
-
-    $Result = $FailureResult
 }
 
-# ============================================================
-# 12. FINAL OUTPUT
-# ============================================================
+# =====================================================================
+# 13. FINAL OUTPUT
+# =====================================================================
 
 if ($null -ne $Result) {
 
-    $Result |
-        ConvertTo-Json -Depth 30 |
-        Write-Output
+    $Result | ConvertTo-Json -Depth 20
 }
 
 exit $ExitCode
