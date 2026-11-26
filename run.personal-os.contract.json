@@ -1,6 +1,6 @@
 {
   "worker": {
-    "name": "run.bootstrap",
+    "name": "run.personal-os",
     "runtime": "powershell",
     "script": "SYSTEM\\CORE\\bootstrap\\personal.os.ps1",
     "timeout_seconds": 300
@@ -18,7 +18,7 @@
     "execution_policy": "bypass",
     "wait_for_completion": true,
     "allow_child_processes": true,
-    "working_directory": "C:\\KAYA\\SYSTEM\\CORE"
+    "working_directory": "C:\\KAYA"
   },
 
   "input": {
@@ -74,8 +74,6 @@
   },
 
   "enabled": true,
-
   "version": "1.0.0",
-
   "type": "worker"
 }
